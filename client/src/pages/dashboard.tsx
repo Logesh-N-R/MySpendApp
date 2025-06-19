@@ -6,6 +6,7 @@ import { QuickAddForm } from "@/components/quick-add-form";
 import { TransactionList } from "@/components/transaction-list";
 import { GroupList } from "@/components/group-list";
 import { NotificationBell } from "@/components/notification-bell";
+import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -65,34 +66,24 @@ export default function Dashboard() {
 
   if (statsLoading) {
     return (
-      <div className="min-h-screen bg-surface">
-        <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center space-x-4">
-                <i className="fas fa-wallet text-2xl text-primary"></i>
-                <h1 className="text-xl font-semibold text-gray-800">Smart Expense Tracker</h1>
-              </div>
-              <div className="flex items-center space-x-4">
-                <NotificationBell />
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-                  <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
-                </div>
-              </div>
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar />
+        <div className="flex-1 ml-64">
+          <nav className="bg-white shadow-sm border-b border-gray-200">
+            <div className="px-6 py-4">
+              <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
             </div>
-          </div>
-        </nav>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-20"></div>
-                </CardContent>
-              </Card>
-            ))}
+          </nav>
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="h-64"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -100,113 +91,129 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <i className="fas fa-wallet text-2xl text-primary"></i>
-              <h1 className="text-xl font-semibold text-gray-800">Smart Expense Tracker</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      {/* Main Content */}
+      <div className="flex-1 ml-64">
+        {/* Top Navigation */}
+        <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+          <div className="px-6 py-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+                <p className="text-sm text-gray-600 mt-1">Welcome back, {user?.name || "User"}</p>
+              </div>
               
-              <div className="flex items-center space-x-3">
-                <img
-                  src={user?.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=32&h=32"}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full"
-                />
-                <span className="text-sm font-medium text-gray-700">
-                  {user?.name || "Loading..."}
-                </span>
+              <div className="flex items-center space-x-4">
+                <Button variant="outline" size="sm" className="text-blue-600 border-blue-600 hover:bg-blue-50">
+                  <i className="fas fa-eye mr-2"></i>
+                  Switch to user view
+                </Button>
+                <select className="text-sm border border-gray-300 rounded px-3 py-2">
+                  <option>English</option>
+                </select>
+                <Button variant="ghost" size="sm">
+                  <i className="fas fa-expand-arrows-alt"></i>
+                </Button>
+                <NotificationBell />
+                <Button variant="ghost" size="sm">
+                  <i className="fas fa-cog"></i>
+                </Button>
+                <Button variant="ghost" size="sm">
+                  Corporate Admin
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <i className="fas fa-power-off"></i>
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatsCard
-            title="This Month"
-            value={formatCurrency(stats?.monthlyTotal || 0)}
-            subtitle="+12% from last month"
-            icon="fas fa-arrow-up"
-            iconColor="text-red-500"
-            valueColor="text-gray-900"
-          />
-
-          <StatsCard
-            title="Group Balance"
-            value={formatCurrency(stats?.groupBalance || 0)}
-            subtitle={`${stats?.activeGroups || 0} active groups`}
-            icon="fas fa-users"
-            iconColor="text-success"
-            valueColor="text-success"
-          />
-
-          <StatsCard
-            title="Pending Dues"
-            value={formatCurrency(stats?.pendingDues || 0)}
-            subtitle="2 payments due"
-            icon="fas fa-clock"
-            iconColor="text-warning"
-            valueColor="text-warning"
-          />
-
-          <StatsCard
-            title="Budget Progress"
-            value={`${stats?.budgetProgress || 0}%`}
-            subtitle="Monthly budget"
-            icon="fas fa-chart-pie"
-            iconColor="text-primary"
-            valueColor="text-gray-900"
-            progress={stats?.budgetProgress || 0}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            <ExpenseChart data={[]} />
-            <TransactionList />
-            <GroupList />
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-8">
-            <QuickAddForm />
-            <CategoryChart data={stats?.categoryBreakdown || []} />
-            
-            {/* Pending Payments */}
-            <Card className="bg-white shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Pending Payments</h2>
-              </div>
-              <CardContent className="p-6">
-                <div className="text-center text-gray-500">
-                  <i className="fas fa-hand-holding-usd text-4xl mb-4 text-gray-300"></i>
-                  <p>No pending payments</p>
-                  <p className="text-sm">All settled up!</p>
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Approval Report */}
+              <Card className="bg-white">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Approval Report</h3>
+                  <div className="flex border-b border-gray-200 mb-6">
+                    <button className="px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-medium">
+                      Expense Report Wise
+                    </button>
+                    <button className="px-4 py-2 text-gray-500 hover:text-gray-700">
+                      Advance Report Wise
+                    </button>
+                  </div>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-folder-open text-2xl text-gray-400"></i>
+                    </div>
+                    <div className="text-gray-400 text-2xl mb-2">😕</div>
+                    <p className="text-gray-500 font-medium">Empty</p>
+                    <p className="text-gray-400 text-sm">No data Available</p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </Card>
+
+              {/* Top Spending Categories */}
+              <Card className="bg-white">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Spending Categories</h3>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-chart-pie text-2xl text-gray-400"></i>
+                    </div>
+                    <div className="text-gray-400 text-2xl mb-2">😕</div>
+                    <p className="text-gray-500 font-medium">Empty</p>
+                    <p className="text-gray-400 text-sm">No data Available</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Budget Status */}
+              <Card className="bg-white">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Budget Status</h3>
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <i className="fas fa-bars mr-2"></i>
+                    </Button>
+                  </div>
+                  <div className="h-64">
+                    <ExpenseChart data={[]} />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Top Spending Users */}
+              <Card className="bg-white">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Spending Users</h3>
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <i className="fas fa-users text-2xl text-gray-400"></i>
+                    </div>
+                    <div className="text-gray-400 text-2xl mb-2">😕</div>
+                    <p className="text-gray-500 font-medium">Empty</p>
+                    <p className="text-gray-400 text-sm">No data Available</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {/* Quick Add Form - Floating */}
+          <div className="fixed bottom-6 right-6 w-80 max-h-96 overflow-hidden">
+            <QuickAddForm />
           </div>
         </div>
-      </div>
-
-      {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6">
-        <Button
-          size="lg"
-          className="w-14 h-14 rounded-full shadow-lg hover:scale-110 transition-all duration-200"
-        >
-          <i className="fas fa-plus text-xl"></i>
-        </Button>
       </div>
     </div>
   );
