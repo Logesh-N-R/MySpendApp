@@ -105,7 +105,7 @@ export function Sidebar() {
             <i className="fas fa-wallet text-white text-sm"></i>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-white">ExpenseOut</h1>
+            <h1 className="text-lg font-semibold text-white">Spends</h1>
             <p className="text-xs text-slate-400">Smart Expense Tracker</p>
           </div>
         </div>
