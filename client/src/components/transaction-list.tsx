@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getUserCurrency } from "@/lib/utils";
 import type { Expense, Category } from "@shared/schema";
 
 interface EnrichedExpense extends Expense {
@@ -15,6 +15,10 @@ export function TransactionList() {
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
   });
 
   // Enrich expenses with category information
@@ -91,7 +95,7 @@ export function TransactionList() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-red-600">
-                    -{formatCurrency(expense.amount)}
+                    -{formatCurrency(parseFloat(expense.amount), expense.currency || getUserCurrency(user))}
                   </p>
                   <p className="text-sm text-gray-500">
                     {formatDate(expense.date)}

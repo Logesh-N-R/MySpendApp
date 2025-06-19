@@ -15,17 +15,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, CURRENCIES } from "@/lib/utils";
+import { AddGroupMemberDialog } from "@/components/add-group-member-dialog";
 import type { Group, GroupMember, Expense, Category, User } from "@shared/schema";
 
 const expenseSchema = z.object({
   amount: z.string().min(1, "Amount is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
   description: z.string().min(1, "Description is required"),
   categoryId: z.string().min(1, "Category is required"),
+  currency: z.string().min(1, "Currency is required"),
   splitType: z.enum(["equal", "custom"]),
   splits: z.array(z.object({
     userId: z.number(),
-    amount: z.number().optional(),
+    amount: z.number(),
   })),
 });
 
@@ -36,6 +38,7 @@ export default function GroupDetails() {
   const groupId = params?.id ? parseInt(params.id) : null;
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [splitType, setSplitType] = useState<"equal" | "custom">("equal");
+  const [customSplits, setCustomSplits] = useState<{ userId: number; amount: string }[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -68,10 +71,21 @@ export default function GroupDetails() {
       amount: "",
       description: "",
       categoryId: "",
+      currency: "USD",
       splitType: "equal",
       splits: [],
     },
   });
+
+  // Initialize custom splits when members change
+  React.useEffect(() => {
+    if (members.length > 0 && customSplits.length === 0) {
+      setCustomSplits(members.map(member => ({
+        userId: member.userId,
+        amount: "0"
+      })));
+    }
+  }, [members, customSplits.length]);
 
   const createExpenseMutation = useMutation({
     mutationFn: async (data: ExpenseFormData) => {
@@ -84,6 +98,12 @@ export default function GroupDetails() {
           userId: member.userId,
           amount: splitAmount,
         }));
+      } else if (data.splitType === "custom") {
+        // Use custom splits from state
+        splits = customSplits.map(split => ({
+          userId: split.userId,
+          amount: parseFloat(split.amount) || 0,
+        }));
       }
 
       return apiRequest("POST", "/api/groups/expenses", {
@@ -91,6 +111,7 @@ export default function GroupDetails() {
         amount: data.amount,
         description: data.description,
         categoryId: parseInt(data.categoryId),
+        currency: data.currency,
         splits,
       });
     },
@@ -156,6 +177,13 @@ export default function GroupDetails() {
               </div>
               
               <div className="flex items-center space-x-4">
+                <AddGroupMemberDialog groupId={groupId!}>
+                  <Button variant="outline">
+                    <i className="fas fa-user-plus mr-2"></i>
+                    Add Member
+                  </Button>
+                </AddGroupMemberDialog>
+                
                 <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
                   <DialogTrigger asChild>
                     <Button>
@@ -169,7 +197,7 @@ export default function GroupDetails() {
                     </DialogHeader>
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                           <FormField
                             control={form.control}
                             name="amount"
@@ -177,16 +205,37 @@ export default function GroupDetails() {
                               <FormItem>
                                 <FormLabel>Amount</FormLabel>
                                 <FormControl>
-                                  <div className="relative">
-                                    <span className="absolute left-3 top-3 text-gray-500">$</span>
-                                    <Input
-                                      {...field}
-                                      type="text"
-                                      placeholder="0.00"
-                                      className="pl-8"
-                                    />
-                                  </div>
+                                  <Input
+                                    {...field}
+                                    type="text"
+                                    placeholder="0.00"
+                                  />
                                 </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="currency"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Currency</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select currency" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {CURRENCIES.map((currency) => (
+                                      <SelectItem key={currency.code} value={currency.code}>
+                                        {currency.symbol} {currency.code} - {currency.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -219,19 +268,46 @@ export default function GroupDetails() {
                           />
                         </div>
 
-                        <FormField
-                          control={form.control}
-                          name="description"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Description</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Enter expense description" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Enter expense description" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="currency"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Currency</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select currency" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {CURRENCIES.map((currency) => (
+                                      <SelectItem key={currency.code} value={currency.code}>
+                                        {currency.symbol} {currency.name} ({currency.code})
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
 
                         <FormField
                           control={form.control}
@@ -262,8 +338,66 @@ export default function GroupDetails() {
                           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                             <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Equal Split Preview</h4>
                             <p className="text-sm text-blue-700 dark:text-blue-300">
-                              Each member will pay: {form.watch("amount") ? formatCurrency(parseFloat(form.watch("amount") || "0") / members.length) : "$0.00"}
+                              Each member will pay: {form.watch("amount") ? formatCurrency(parseFloat(form.watch("amount") || "0") / members.length, form.watch("currency")) : formatCurrency(0, form.watch("currency"))}
                             </p>
+                          </div>
+                        )}
+
+                        {splitType === "custom" && (
+                          <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
+                            <h4 className="font-medium text-orange-900 dark:text-orange-100 mb-3">Custom Split Amounts</h4>
+                            <div className="space-y-3 max-h-48 overflow-y-auto">
+                              {customSplits.map((split, index) => {
+                                const member = members.find(m => m.userId === split.userId);
+                                return (
+                                  <div key={split.userId} className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                                      <i className="fas fa-user text-orange-600 dark:text-orange-400 text-sm"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Member {member?.userId}
+                                      </span>
+                                    </div>
+                                    <div className="w-24">
+                                      <Input
+                                        type="text"
+                                        placeholder="0.00"
+                                        value={split.amount}
+                                        onChange={(e) => {
+                                          const newSplits = [...customSplits];
+                                          newSplits[index].amount = e.target.value;
+                                          setCustomSplits(newSplits);
+                                        }}
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-700">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-orange-700 dark:text-orange-300">Total Split:</span>
+                                <span className="font-medium text-orange-900 dark:text-orange-100">
+                                  {formatCurrency(
+                                    customSplits.reduce((sum, split) => sum + (parseFloat(split.amount) || 0), 0),
+                                    form.watch("currency")
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-orange-700 dark:text-orange-300">Expense Amount:</span>
+                                <span className="font-medium text-orange-900 dark:text-orange-100">
+                                  {formatCurrency(parseFloat(form.watch("amount") || "0"), form.watch("currency"))}
+                                </span>
+                              </div>
+                              {Math.abs(customSplits.reduce((sum, split) => sum + (parseFloat(split.amount) || 0), 0) - parseFloat(form.watch("amount") || "0")) > 0.01 && (
+                                <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-xs text-red-700 dark:text-red-300">
+                                  Warning: Split total doesn't match expense amount
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -336,19 +470,32 @@ export default function GroupDetails() {
           {/* Group Members */}
           <Card className="bg-white dark:bg-gray-800">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">Group Members</CardTitle>
+              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center justify-between">
+                Group Members
+                <AddGroupMemberDialog groupId={groupId!}>
+                  <Button size="sm" variant="outline">
+                    <i className="fas fa-user-plus mr-2"></i>
+                    Add Member
+                  </Button>
+                </AddGroupMemberDialog>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {members.map((member) => (
-                  <div key={member.id} className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                      <i className="fas fa-user text-blue-600 dark:text-blue-400"></i>
+                  <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                        <i className="fas fa-user text-blue-600 dark:text-blue-400"></i>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">Member {member.userId}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{member.role || 'Member'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">Member {member.userId}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Active</p>
-                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {new Date(member.joinedAt).toLocaleDateString()}
+                    </Badge>
                   </div>
                 ))}
               </div>

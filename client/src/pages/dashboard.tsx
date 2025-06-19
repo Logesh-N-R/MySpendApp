@@ -6,8 +6,11 @@ import { QuickAddForm } from "@/components/quick-add-form";
 import { TransactionList } from "@/components/transaction-list";
 import { NotificationBell } from "@/components/notification-bell";
 import { Sidebar } from "@/components/sidebar";
+import { AddGroupExpenseDialog } from "@/components/add-group-expense-dialog";
+import { AddExpenseDialog } from "@/components/add-expense-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getUserCurrency } from "@/lib/utils";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,6 +28,10 @@ interface DashboardStats {
     color: string;
     amount: number;
     percentage: number;
+  }>;
+  monthlyTrends: Array<{
+    month: string;
+    amount: number;
   }>;
 }
 
@@ -115,6 +122,18 @@ export default function Dashboard() {
               </div>
               
               <div className="flex items-center space-x-4">
+                <AddExpenseDialog>
+                  <Button variant="outline" size="sm">
+                    <i className="fas fa-plus mr-2"></i>
+                    Quick Add
+                  </Button>
+                </AddExpenseDialog>
+                <AddGroupExpenseDialog>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                    <i className="fas fa-users mr-2"></i>
+                    Group Expense
+                  </Button>
+                </AddGroupExpenseDialog>
                 <NotificationBell />
               </div>
             </div>
@@ -176,19 +195,12 @@ export default function Dashboard() {
               <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Monthly Spending Trend</h3>
-                  <div className="h-64">
-                    <ExpenseChart data={[]} />
-                  </div>
+                  <ExpenseChart data={stats?.monthlyTrends || []} />
                 </div>
               </Card>
 
               {/* Recent Transactions */}
-              <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Recent Transactions</h3>
-                  <TransactionList />
-                </div>
-              </Card>
+              <TransactionList />
             </div>
           </div>
         </div>

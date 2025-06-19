@@ -28,6 +28,7 @@ export interface User {
   password: string;
   name: string;
   avatar: string | null;
+  defaultCurrency?: string;
 }
 
 export interface InsertUser {
@@ -36,6 +37,7 @@ export interface InsertUser {
   password: string;
   name: string;
   avatar?: string | null;
+  defaultCurrency?: string;
 }
 
 export interface Category {
@@ -91,6 +93,7 @@ export interface Expense {
   groupId?: number | null;
   notes?: string | null;
   receipt?: string | null;
+  currency?: string;
   date: Date;
 }
 
@@ -102,6 +105,7 @@ export interface InsertExpense {
   groupId?: number | null;
   notes?: string | null;
   receipt?: string | null;
+  currency?: string;
 }
 
 export interface GroupExpenseSplit {
@@ -201,10 +205,17 @@ class MongoStorage implements IStorage {
     return user ? this.convertUser(user) : undefined;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    await connectToMongoDB();
+    const users = await getCollection('users').find({}).toArray();
+    return users.map(user => this.convertUser(user));
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     await connectToMongoDB();
     const result = await getCollection('users').insertOne({
       ...insertUser,
+      defaultCurrency: insertUser.defaultCurrency || "USD",
       createdAt: new Date(),
       updatedAt: new Date()
     });

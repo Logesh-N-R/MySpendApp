@@ -136,6 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = z.object({
         name: z.string().min(1, "Name is required"),
         email: z.string().email("Invalid email address"),
+        defaultCurrency: z.string().optional(),
       }).parse(req.body);
 
       const updatedUser = await storage.updateUser(user.id, updateData);
@@ -146,6 +147,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Update profile error:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Get all users (for adding to groups)
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get users" });
     }
   });
 
@@ -276,10 +287,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const group = await storage.createGroup(groupData);
       
-      // Add creator as member
+      // Add creator as admin member
       await storage.addGroupMember({
         groupId: group.id,
         userId: user.id,
+        role: "admin",
       });
 
       res.status(201).json(group);
@@ -325,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "User not found" });
       }
 
-      const { groupId, amount, description, categoryId, splits } = req.body;
+      const { groupId, amount, description, categoryId, currency, splitType } = req.body;
       
       // Verify user is a member of the group
       const isMember = await storage.isGroupMember(groupId, user.id);
@@ -342,13 +354,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         groupId,
       });
 
-      // Create splits for each member
-      for (const split of splits) {
-        await storage.createGroupExpenseSplit({
-          expenseId: expense.id,
-          userId: split.userId,
-          amount: split.amount.toString(),
-        });
+      // Get group members for splitting
+      const groupMembers = await storage.getGroupMembers(groupId);
+      
+      if (splitType === "equal") {
+        // Split equally among all members
+        const splitAmount = parseFloat(amount) / groupMembers.length;
+        
+        for (const member of groupMembers) {
+          await storage.createGroupExpenseSplit({
+            expenseId: expense.id,
+            userId: member.userId,
+            amount: splitAmount.toFixed(2),
+          });
+        }
       }
 
       // Broadcast to clients

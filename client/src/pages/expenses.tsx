@@ -4,6 +4,8 @@ import { TransactionList } from "@/components/transaction-list";
 import { QuickAddForm } from "@/components/quick-add-form";
 import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
+import { AddGroupExpenseDialog } from "@/components/add-group-expense-dialog";
+import { AddExpenseDialog } from "@/components/add-expense-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import type { User } from "@shared/schema";
 
@@ -30,10 +32,18 @@ export default function Expenses() {
                   <i className="fas fa-download mr-2"></i>
                   Export
                 </Button>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <i className="fas fa-plus mr-2"></i>
-                  Add Expense
-                </Button>
+                <AddExpenseDialog>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <i className="fas fa-plus mr-2"></i>
+                    Add Expense
+                  </Button>
+                </AddExpenseDialog>
+                <AddGroupExpenseDialog>
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                    <i className="fas fa-users mr-2"></i>
+                    Group Expense
+                  </Button>
+                </AddGroupExpenseDialog>
                 <NotificationBell />
               </div>
             </div>

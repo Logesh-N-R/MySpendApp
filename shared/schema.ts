@@ -59,6 +59,7 @@ export type User = {
   password: string;
   name: string;
   avatar: string | null;
+  defaultCurrency?: string;
 };
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -103,6 +104,7 @@ export type Expense = {
   groupId?: number | null;
   notes?: string | null;
   receipt?: string | null;
+  currency?: string;
   date: Date;
 };
 

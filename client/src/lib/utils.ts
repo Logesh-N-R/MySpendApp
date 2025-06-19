@@ -5,16 +5,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number | string): string {
+export function formatCurrency(amount: number | string, currency: string = 'USD'): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(num)) return `${CURRENCIES.find(c => c.code === currency)?.symbol || '$'}0.00`;
+  
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(num);
 }
 
-export function formatDate(date: Date | string): string {
+export function getUserCurrency(user: any): string {
+  return user?.defaultCurrency || 'USD';
+}
+
+export const CURRENCIES = [
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CHF', name: 'Swiss Franc', symbol: 'Fr' },
+  { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+];
+
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return 'No date';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return 'Invalid date';
+  
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));

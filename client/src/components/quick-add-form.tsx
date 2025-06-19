@@ -11,12 +11,14 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Category, Group } from "@shared/schema";
+import { getUserCurrency, CURRENCIES } from "@/lib/utils";
+import type { Category, Group, User } from "@shared/schema";
 
 const formSchema = z.object({
   amount: z.string().min(1, "Amount is required").regex(/^\d+(\.\d{1,2})?$/, "Invalid amount format"),
   description: z.string().min(1, "Description is required"),
   categoryId: z.string().min(1, "Category is required"),
+  currency: z.string().min(1, "Currency is required"),
   groupId: z.string().optional(),
 });
 
@@ -27,12 +29,17 @@ export function QuickAddForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/user"],
+  });
+
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount: "",
       description: "",
       categoryId: "",
+      currency: getUserCurrency(user),
       groupId: "personal",
     },
   });
@@ -51,6 +58,7 @@ export function QuickAddForm() {
         amount: data.amount,
         description: data.description,
         categoryId: parseInt(data.categoryId),
+        currency: data.currency,
         groupId: data.groupId && data.groupId !== "personal" ? parseInt(data.groupId) : null,
         date: new Date().toISOString(),
       });
@@ -95,29 +103,55 @@ export function QuickAddForm() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Amount
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <span className="absolute left-3 top-3 text-gray-500 dark:text-gray-400">$</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Amount
+                        </FormLabel>
+                        <FormControl>
                           <Input
                             {...field}
                             type="text"
                             placeholder="0.00"
-                            className="pl-8 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                            className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                           />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="currency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Currency
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                              <SelectValue placeholder="Currency" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CURRENCIES.map((currency) => (
+                              <SelectItem key={currency.code} value={currency.code}>
+                                {currency.symbol} {currency.code}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
