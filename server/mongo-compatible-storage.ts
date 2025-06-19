@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { connectToMongoDB, getCollection } from "./mongodb";
 
-// ID mapping for frontend compatibility
+// Simple ID mapping for frontend compatibility
 let idCounter = 1;
 const objectIdToNumber = new Map<string, number>();
 const numberToObjectId = new Map<number, ObjectId>();
@@ -164,15 +164,15 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<Notification | undefined>;
 }
 
-class MongoStorage implements IStorage {
+class MongoCompatibleStorage implements IStorage {
   constructor() {
-    this.initialize();
+    this.initializeData();
   }
 
-  private async initialize() {
+  private async initializeData() {
     await connectToMongoDB();
     
-    // Seed default categories
+    // Seed default categories if none exist
     const categoriesCount = await getCollection('categories').countDocuments();
     if (categoriesCount === 0) {
       await getCollection('categories').insertMany([
@@ -543,4 +543,4 @@ class MongoStorage implements IStorage {
   }
 }
 
-export const storage = new MongoStorage();
+export const storage = new MongoCompatibleStorage();

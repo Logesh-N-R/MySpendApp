@@ -1,12 +1,12 @@
 import { ObjectId } from "mongodb";
 import { connectToMongoDB, getCollection } from "./mongodb";
 
-// ID mapping for frontend compatibility
+// Helper to convert MongoDB ObjectId to numeric ID for frontend compatibility
 let idCounter = 1;
 const objectIdToNumber = new Map<string, number>();
 const numberToObjectId = new Map<number, ObjectId>();
 
-function toNumericId(objectId: ObjectId): number {
+function getNumericId(objectId: ObjectId): number {
   const key = objectId.toString();
   if (!objectIdToNumber.has(key)) {
     const numId = idCounter++;
@@ -16,11 +16,11 @@ function toNumericId(objectId: ObjectId): number {
   return objectIdToNumber.get(key)!;
 }
 
-function toObjectId(numId: number): ObjectId | null {
+function getObjectId(numId: number): ObjectId | null {
   return numberToObjectId.get(numId) || null;
 }
 
-// Frontend-compatible interfaces
+// Frontend-compatible types
 export interface User {
   id: number;
   username: string;
@@ -141,317 +141,371 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
+  
   getCategories(): Promise<Category[]>;
   createCategory(category: InsertCategory): Promise<Category>;
+  
   getGroups(): Promise<Group[]>;
   getGroupsByUserId(userId: number): Promise<Group[]>;
   getGroup(id: number): Promise<Group | undefined>;
   createGroup(group: InsertGroup): Promise<Group>;
+  
   getGroupMembers(groupId: number): Promise<GroupMember[]>;
   addGroupMember(member: InsertGroupMember): Promise<GroupMember>;
   isGroupMember(groupId: number, userId: number): Promise<boolean>;
+  
   getExpenses(): Promise<Expense[]>;
   getExpensesByUserId(userId: number): Promise<Expense[]>;
   getExpensesByGroupId(groupId: number): Promise<Expense[]>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(expense: InsertExpense): Promise<Expense>;
+  
   getGroupExpenseSplits(expenseId: number): Promise<GroupExpenseSplit[]>;
   getGroupExpenseSplitsByUserId(userId: number): Promise<GroupExpenseSplit[]>;
   createGroupExpenseSplit(split: InsertGroupExpenseSplit): Promise<GroupExpenseSplit>;
   settleGroupExpenseSplit(id: number): Promise<GroupExpenseSplit | undefined>;
+  
   getNotificationsByUserId(userId: number): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<Notification | undefined>;
 }
 
-class MongoStorage implements IStorage {
+export class MongoStorage implements IStorage {
   constructor() {
-    this.initialize();
+    this.seedDefaultData();
   }
 
-  private async initialize() {
+  private async seedDefaultData() {
     await connectToMongoDB();
     
-    // Seed default categories
+    // Check if categories exist, if not, seed them
     const categoriesCount = await getCollection('categories').countDocuments();
     if (categoriesCount === 0) {
-      await getCollection('categories').insertMany([
+      const defaultCategories = [
         { name: "Food & Dining", icon: "fas fa-utensils", color: "#3B82F6", createdAt: new Date() },
         { name: "Transportation", icon: "fas fa-car", color: "#EF4444", createdAt: new Date() },
         { name: "Shopping", icon: "fas fa-shopping-cart", color: "#10B981", createdAt: new Date() },
         { name: "Entertainment", icon: "fas fa-gamepad", color: "#F59E0B", createdAt: new Date() },
         { name: "Housing", icon: "fas fa-home", color: "#8B5CF6", createdAt: new Date() },
-        { name: "Healthcare", icon: "fas fa-heartbeat", color: "#EC4899", createdAt: new Date() }
-      ]);
+        { name: "Healthcare", icon: "fas fa-heartbeat", color: "#EC4899", createdAt: new Date() },
+      ];
+      
+      await getCollection('categories').insertMany(defaultCategories);
     }
   }
 
+  // Users
   async getUser(id: number): Promise<User | undefined> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) return undefined;
     
     const user = await getCollection('users').findOne({ _id: objectId });
-    return user ? this.convertUser(user) : undefined;
+    return user ? this.convertUserFromMongo(user) : undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     await connectToMongoDB();
     const user = await getCollection('users').findOne({ username });
-    return user ? this.convertUser(user) : undefined;
+    return user ? this.convertUserFromMongo(user) : undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     await connectToMongoDB();
-    const result = await getCollection('users').insertOne({
+    const userDoc = {
       ...insertUser,
       createdAt: new Date(),
-      updatedAt: new Date()
-    });
+      updatedAt: new Date(),
+    };
+    const result = await getCollection('users').insertOne(userDoc);
     const user = await getCollection('users').findOne({ _id: result.insertedId });
-    return this.convertUser(user!);
+    return this.convertUserFromMongo(user!);
   }
 
   async updateUser(id: number, updates: Partial<InsertUser>): Promise<User> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) throw new Error("User not found");
     
-    await getCollection('users').updateOne(
-      { _id: objectId }, 
-      { $set: { ...updates, updatedAt: new Date() } }
-    );
+    const updateDoc = {
+      ...updates,
+      updatedAt: new Date(),
+    };
+    await getCollection('users').updateOne({ _id: objectId }, { $set: updateDoc });
     const user = await getCollection('users').findOne({ _id: objectId });
-    return this.convertUser(user!);
+    return this.convertUserFromMongo(user!);
   }
 
+  // Categories
   async getCategories(): Promise<Category[]> {
     await connectToMongoDB();
     const categories = await getCollection('categories').find({}).toArray();
-    return categories.map(cat => this.convertCategory(cat));
+    return categories.map(cat => this.convertCategoryFromMongo(cat));
   }
 
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     await connectToMongoDB();
-    const result = await getCollection('categories').insertOne({
+    const categoryDoc = {
       ...insertCategory,
-      createdAt: new Date()
-    });
+      createdAt: new Date(),
+    };
+    const result = await getCollection('categories').insertOne(categoryDoc);
     const category = await getCollection('categories').findOne({ _id: result.insertedId });
-    return this.convertCategory(category!);
+    return this.convertCategoryFromMongo(category!);
   }
 
+  // Groups
   async getGroups(): Promise<Group[]> {
     await connectToMongoDB();
     const groups = await getCollection('groups').find({}).toArray();
-    return groups.map(group => this.convertGroup(group));
+    return groups.map(group => this.convertGroupFromMongo(group));
   }
 
   async getGroupsByUserId(userId: number): Promise<Group[]> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(userId);
+    const userObjectId = getObjectId(userId);
     if (!userObjectId) return [];
     
-    const memberGroups = await getCollection('groupMembers').find({ userId: userObjectId }).toArray();
-    const groupIds = memberGroups.map(member => member.groupId);
+    const memberGroups = await getCollection('groupMembers')
+      .find({ userId: userObjectId })
+      .toArray();
     
+    const groupIds = memberGroups.map(member => member.groupId);
     if (groupIds.length === 0) return [];
     
-    const groups = await getCollection('groups').find({ _id: { $in: groupIds } }).toArray();
-    return groups.map(group => this.convertGroup(group));
+    const groups = await getCollection('groups')
+      .find({ _id: { $in: groupIds } })
+      .toArray();
+    
+    return groups.map(group => this.convertGroupFromMongo(group));
   }
 
   async getGroup(id: number): Promise<Group | undefined> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) return undefined;
     
     const group = await getCollection('groups').findOne({ _id: objectId });
-    return group ? this.convertGroup(group) : undefined;
+    return group ? this.convertGroupFromMongo(group) : undefined;
   }
 
   async createGroup(insertGroup: InsertGroup): Promise<Group> {
     await connectToMongoDB();
-    const createdByObjectId = toObjectId(insertGroup.createdBy);
+    const createdByObjectId = getObjectId(insertGroup.createdBy);
     if (!createdByObjectId) throw new Error("Invalid user ID");
     
-    const result = await getCollection('groups').insertOne({
+    const groupDoc = {
       ...insertGroup,
       createdBy: createdByObjectId,
       icon: insertGroup.icon || "fas fa-users",
-      createdAt: new Date()
-    });
+      createdAt: new Date(),
+    };
+    const result = await getCollection('groups').insertOne(groupDoc);
     const group = await getCollection('groups').findOne({ _id: result.insertedId });
-    return this.convertGroup(group!);
+    return this.convertGroupFromMongo(group!);
   }
 
+  // Group Members
   async getGroupMembers(groupId: number): Promise<GroupMember[]> {
     await connectToMongoDB();
-    const groupObjectId = toObjectId(groupId);
+    const groupObjectId = getObjectId(groupId);
     if (!groupObjectId) return [];
     
-    const members = await getCollection('groupMembers').find({ groupId: groupObjectId }).toArray();
-    return members.map(member => this.convertGroupMember(member));
+    const members = await getCollection('groupMembers')
+      .find({ groupId: groupObjectId })
+      .toArray();
+    return members.map(member => this.convertGroupMemberFromMongo(member));
   }
 
   async addGroupMember(insertMember: InsertGroupMember): Promise<GroupMember> {
     await connectToMongoDB();
-    const groupObjectId = toObjectId(insertMember.groupId);
-    const userObjectId = toObjectId(insertMember.userId);
+    const groupObjectId = getObjectId(insertMember.groupId);
+    const userObjectId = getObjectId(insertMember.userId);
     
-    if (!groupObjectId || !userObjectId) throw new Error("Invalid IDs");
+    if (!groupObjectId || !userObjectId) {
+      throw new Error("Invalid group or user ID");
+    }
     
-    const result = await getCollection('groupMembers').insertOne({
+    const memberDoc = {
       ...insertMember,
       groupId: groupObjectId,
       userId: userObjectId,
       role: insertMember.role || "member",
-      joinedAt: new Date()
-    });
+      joinedAt: new Date(),
+    };
+    const result = await getCollection('groupMembers').insertOne(memberDoc);
     const member = await getCollection('groupMembers').findOne({ _id: result.insertedId });
-    return this.convertGroupMember(member!);
+    return this.convertGroupMemberFromMongo(member!);
   }
 
   async isGroupMember(groupId: number, userId: number): Promise<boolean> {
     await connectToMongoDB();
-    const groupObjectId = toObjectId(groupId);
-    const userObjectId = toObjectId(userId);
+    const groupObjectId = getObjectId(groupId);
+    const userObjectId = getObjectId(userId);
     
     if (!groupObjectId || !userObjectId) return false;
     
     const member = await getCollection('groupMembers').findOne({
       groupId: groupObjectId,
-      userId: userObjectId
+      userId: userObjectId,
     });
     return !!member;
   }
 
+  // Expenses
   async getExpenses(): Promise<Expense[]> {
     await connectToMongoDB();
     const expenses = await getCollection('expenses').find({}).sort({ date: -1 }).toArray();
-    return expenses.map(expense => this.convertExpense(expense));
+    return expenses.map(expense => this.convertExpenseFromMongo(expense));
   }
 
   async getExpensesByUserId(userId: number): Promise<Expense[]> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(userId);
+    const userObjectId = getObjectId(userId);
     if (!userObjectId) return [];
     
-    const expenses = await getCollection('expenses').find({ userId: userObjectId }).sort({ date: -1 }).toArray();
-    return expenses.map(expense => this.convertExpense(expense));
+    const expenses = await getCollection('expenses')
+      .find({ userId: userObjectId })
+      .sort({ date: -1 })
+      .toArray();
+    return expenses.map(expense => this.convertExpenseFromMongo(expense));
   }
 
   async getExpensesByGroupId(groupId: number): Promise<Expense[]> {
     await connectToMongoDB();
-    const groupObjectId = toObjectId(groupId);
+    const groupObjectId = getObjectId(groupId);
     if (!groupObjectId) return [];
     
-    const expenses = await getCollection('expenses').find({ groupId: groupObjectId }).sort({ date: -1 }).toArray();
-    return expenses.map(expense => this.convertExpense(expense));
+    const expenses = await getCollection('expenses')
+      .find({ groupId: groupObjectId })
+      .sort({ date: -1 })
+      .toArray();
+    return expenses.map(expense => this.convertExpenseFromMongo(expense));
   }
 
   async getExpense(id: number): Promise<Expense | undefined> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) return undefined;
     
     const expense = await getCollection('expenses').findOne({ _id: objectId });
-    return expense ? this.convertExpense(expense) : undefined;
+    return expense ? this.convertExpenseFromMongo(expense) : undefined;
   }
 
   async createExpense(insertExpense: InsertExpense): Promise<Expense> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(insertExpense.userId);
-    const categoryObjectId = toObjectId(insertExpense.categoryId);
+    const userObjectId = getObjectId(insertExpense.userId);
+    const categoryObjectId = getObjectId(insertExpense.categoryId);
     
-    if (!userObjectId || !categoryObjectId) throw new Error("Invalid IDs");
+    if (!userObjectId || !categoryObjectId) {
+      throw new Error("Invalid user or category ID");
+    }
     
-    const result = await getCollection('expenses').insertOne({
+    const expenseDoc = {
       ...insertExpense,
       userId: userObjectId,
       categoryId: categoryObjectId,
-      groupId: insertExpense.groupId ? toObjectId(insertExpense.groupId) : null,
-      date: new Date()
-    });
+      groupId: insertExpense.groupId ? getObjectId(insertExpense.groupId) : null,
+      date: new Date(),
+    };
+    const result = await getCollection('expenses').insertOne(expenseDoc);
     const expense = await getCollection('expenses').findOne({ _id: result.insertedId });
-    return this.convertExpense(expense!);
+    return this.convertExpenseFromMongo(expense!);
   }
 
+  // Group Expense Splits
   async getGroupExpenseSplits(expenseId: number): Promise<GroupExpenseSplit[]> {
     await connectToMongoDB();
-    const expenseObjectId = toObjectId(expenseId);
+    const expenseObjectId = getObjectId(expenseId);
     if (!expenseObjectId) return [];
     
-    const splits = await getCollection('groupExpenseSplits').find({ expenseId: expenseObjectId }).toArray();
-    return splits.map(split => this.convertGroupExpenseSplit(split));
+    const splits = await getCollection('groupExpenseSplits')
+      .find({ expenseId: expenseObjectId })
+      .toArray();
+    return splits.map(split => this.convertGroupExpenseSplitFromMongo(split));
   }
 
   async getGroupExpenseSplitsByUserId(userId: number): Promise<GroupExpenseSplit[]> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(userId);
+    const userObjectId = getObjectId(userId);
     if (!userObjectId) return [];
     
-    const splits = await getCollection('groupExpenseSplits').find({ userId: userObjectId }).toArray();
-    return splits.map(split => this.convertGroupExpenseSplit(split));
+    const splits = await getCollection('groupExpenseSplits')
+      .find({ userId: userObjectId })
+      .toArray();
+    return splits.map(split => this.convertGroupExpenseSplitFromMongo(split));
   }
 
   async createGroupExpenseSplit(insertSplit: InsertGroupExpenseSplit): Promise<GroupExpenseSplit> {
     await connectToMongoDB();
-    const expenseObjectId = toObjectId(insertSplit.expenseId);
-    const userObjectId = toObjectId(insertSplit.userId);
+    const expenseObjectId = getObjectId(insertSplit.expenseId);
+    const userObjectId = getObjectId(insertSplit.userId);
     
-    if (!expenseObjectId || !userObjectId) throw new Error("Invalid IDs");
+    if (!expenseObjectId || !userObjectId) {
+      throw new Error("Invalid expense or user ID");
+    }
     
-    const result = await getCollection('groupExpenseSplits').insertOne({
+    const splitDoc = {
       ...insertSplit,
       expenseId: expenseObjectId,
       userId: userObjectId,
-      settled: false
-    });
+      settled: false,
+    };
+    const result = await getCollection('groupExpenseSplits').insertOne(splitDoc);
     const split = await getCollection('groupExpenseSplits').findOne({ _id: result.insertedId });
-    return this.convertGroupExpenseSplit(split!);
+    return this.convertGroupExpenseSplitFromMongo(split!);
   }
 
   async settleGroupExpenseSplit(id: number): Promise<GroupExpenseSplit | undefined> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) return undefined;
     
     await getCollection('groupExpenseSplits').updateOne(
       { _id: objectId },
-      { $set: { settled: true, settledAt: new Date() } }
+      { 
+        $set: { 
+          settled: true, 
+          settledAt: new Date() 
+        } 
+      }
     );
     const split = await getCollection('groupExpenseSplits').findOne({ _id: objectId });
-    return split ? this.convertGroupExpenseSplit(split) : undefined;
+    return split ? this.convertGroupExpenseSplitFromMongo(split) : undefined;
   }
 
+  // Notifications
   async getNotificationsByUserId(userId: number): Promise<Notification[]> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(userId);
+    const userObjectId = getObjectId(userId);
     if (!userObjectId) return [];
     
-    const notifications = await getCollection('notifications').find({ userId: userObjectId }).sort({ createdAt: -1 }).toArray();
-    return notifications.map(notification => this.convertNotification(notification));
+    const notifications = await getCollection('notifications')
+      .find({ userId: userObjectId })
+      .sort({ createdAt: -1 })
+      .toArray();
+    return notifications.map(notification => this.convertNotificationFromMongo(notification));
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
     await connectToMongoDB();
-    const userObjectId = toObjectId(insertNotification.userId);
+    const userObjectId = getObjectId(insertNotification.userId);
     if (!userObjectId) throw new Error("Invalid user ID");
     
-    const result = await getCollection('notifications').insertOne({
+    const notificationDoc = {
       ...insertNotification,
       userId: userObjectId,
       read: false,
-      createdAt: new Date()
-    });
+      createdAt: new Date(),
+    };
+    const result = await getCollection('notifications').insertOne(notificationDoc);
     const notification = await getCollection('notifications').findOne({ _id: result.insertedId });
-    return this.convertNotification(notification!);
+    return this.convertNotificationFromMongo(notification!);
   }
 
   async markNotificationAsRead(id: number): Promise<Notification | undefined> {
     await connectToMongoDB();
-    const objectId = toObjectId(id);
+    const objectId = getObjectId(id);
     if (!objectId) return undefined;
     
     await getCollection('notifications').updateOne(
@@ -459,86 +513,86 @@ class MongoStorage implements IStorage {
       { $set: { read: true } }
     );
     const notification = await getCollection('notifications').findOne({ _id: objectId });
-    return notification ? this.convertNotification(notification) : undefined;
+    return notification ? this.convertNotificationFromMongo(notification) : undefined;
   }
 
-  // Conversion helpers
-  private convertUser(doc: any): User {
+  // Helper conversion methods
+  private convertUserFromMongo(doc: any): User {
     return {
-      id: toNumericId(doc._id),
+      id: getNumericId(doc._id),
       username: doc.username,
       email: doc.email,
       password: doc.password,
       name: doc.name,
-      avatar: doc.avatar || null
+      avatar: doc.avatar || null,
     };
   }
 
-  private convertCategory(doc: any): Category {
+  private convertCategoryFromMongo(doc: any): Category {
     return {
-      id: toNumericId(doc._id),
+      id: getNumericId(doc._id),
       name: doc.name,
       icon: doc.icon,
       color: doc.color,
-      createdAt: doc.createdAt
+      createdAt: doc.createdAt,
     };
   }
 
-  private convertGroup(doc: any): Group {
+  private convertGroupFromMongo(doc: any): Group {
     return {
-      id: toNumericId(doc._id),
+      id: getNumericId(doc._id),
       name: doc.name,
       description: doc.description || null,
       icon: doc.icon,
-      createdBy: toNumericId(doc.createdBy),
-      createdAt: doc.createdAt
+      createdBy: getNumericId(doc.createdBy),
+      createdAt: doc.createdAt,
     };
   }
 
-  private convertGroupMember(doc: any): GroupMember {
+  private convertGroupMemberFromMongo(doc: any): GroupMember {
     return {
-      id: toNumericId(doc._id),
-      groupId: toNumericId(doc.groupId),
-      userId: toNumericId(doc.userId),
+      id: getNumericId(doc._id),
+      groupId: getNumericId(doc.groupId),
+      userId: getNumericId(doc.userId),
       role: doc.role || "member",
-      joinedAt: doc.joinedAt
+      joinedAt: doc.joinedAt,
     };
   }
 
-  private convertExpense(doc: any): Expense {
+  private convertExpenseFromMongo(doc: any): Expense {
     return {
-      id: toNumericId(doc._id),
+      id: getNumericId(doc._id),
       amount: doc.amount,
       description: doc.description,
-      categoryId: toNumericId(doc.categoryId),
-      userId: toNumericId(doc.userId),
-      groupId: doc.groupId ? toNumericId(doc.groupId) : null,
+      categoryId: getNumericId(doc.categoryId),
+      userId: getNumericId(doc.userId),
+      groupId: doc.groupId ? getNumericId(doc.groupId) : null,
       notes: doc.notes || null,
       receipt: doc.receipt || null,
-      date: doc.date
+      date: doc.date,
     };
   }
 
-  private convertGroupExpenseSplit(doc: any): GroupExpenseSplit {
+  private convertGroupExpenseSplitFromMongo(doc: any): GroupExpenseSplit {
     return {
-      id: toNumericId(doc._id),
-      expenseId: toNumericId(doc.expenseId),
-      userId: toNumericId(doc.userId),
+      id: getNumericId(doc._id),
+      expenseId: getNumericId(doc.expenseId),
+      userId: getNumericId(doc.userId),
       amount: doc.amount,
       settled: doc.settled || false,
-      settledAt: doc.settledAt || null
+      settledAt: doc.settledAt || null,
     };
   }
 
-  private convertNotification(doc: any): Notification {
+  private convertNotificationFromMongo(doc: any): Notification {
     return {
-      id: toNumericId(doc._id),
-      userId: toNumericId(doc.userId),
+      id: getNumericId(doc._id),
+      userId: getNumericId(doc.userId),
       type: doc.type,
       title: doc.title,
       message: doc.message,
       read: doc.read || false,
-      createdAt: doc.createdAt
+      createdAt: doc.createdAt,
     };
   }
 }

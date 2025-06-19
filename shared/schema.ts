@@ -1,126 +1,132 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  avatar: text("avatar"),
+// Validation schemas for MongoDB data
+export const insertUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  name: z.string().min(1, "Name is required"),
+  avatar: z.string().nullable().optional(),
 });
 
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  icon: text("icon").notNull(),
-  color: text("color").notNull(),
+export const insertCategorySchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  icon: z.string().min(1, "Icon is required"),
+  color: z.string().min(1, "Color is required"),
 });
 
-export const groups = pgTable("groups", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  icon: text("icon").notNull().default("fas fa-users"),
-  createdBy: integer("created_by").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+export const insertGroupSchema = z.object({
+  name: z.string().min(1, "Group name is required"),
+  description: z.string().nullable().optional(),
+  icon: z.string().optional(),
+  createdBy: z.number().int().positive("Valid user ID is required"),
 });
 
-export const groupMembers = pgTable("group_members", {
-  id: serial("id").primaryKey(),
-  groupId: integer("group_id").notNull(),
-  userId: integer("user_id").notNull(),
-  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+export const insertGroupMemberSchema = z.object({
+  groupId: z.number().int().positive("Valid group ID is required"),
+  userId: z.number().int().positive("Valid user ID is required"),
+  role: z.string().optional(),
 });
 
-export const expenses = pgTable("expenses", {
-  id: serial("id").primaryKey(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  description: text("description").notNull(),
-  categoryId: integer("category_id").notNull(),
-  userId: integer("user_id").notNull(),
-  groupId: integer("group_id"),
-  date: timestamp("date").notNull().defaultNow(),
-  notes: text("notes"),
-  receipt: text("receipt"),
+export const insertExpenseSchema = z.object({
+  amount: z.string().min(1, "Amount is required"),
+  description: z.string().min(1, "Description is required"),
+  categoryId: z.number().int().positive("Valid category ID is required"),
+  userId: z.number().int().positive("Valid user ID is required"),
+  groupId: z.number().int().positive().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  receipt: z.string().nullable().optional(),
 });
 
-export const groupExpenseSplits = pgTable("group_expense_splits", {
-  id: serial("id").primaryKey(),
-  expenseId: integer("expense_id").notNull(),
-  userId: integer("user_id").notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  settled: boolean("settled").notNull().default(false),
-  settledAt: timestamp("settled_at"),
+export const insertGroupExpenseSplitSchema = z.object({
+  expenseId: z.number().int().positive("Valid expense ID is required"),
+  userId: z.number().int().positive("Valid user ID is required"),
+  amount: z.string().min(1, "Amount is required"),
 });
 
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  title: text("title").notNull(),
-  message: text("message").notNull(),
-  type: text("type").notNull(), // 'expense_added', 'payment_received', 'payment_reminder'
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  relatedExpenseId: integer("related_expense_id"),
-  relatedGroupId: integer("related_group_id"),
+export const insertNotificationSchema = z.object({
+  userId: z.number().int().positive("Valid user ID is required"),
+  type: z.string().min(1, "Type is required"),
+  title: z.string().min(1, "Title is required"),
+  message: z.string().min(1, "Message is required"),
 });
 
-// Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-});
+// Export types that match the storage interfaces
+export type User = {
+  id: number;
+  username: string;
+  email: string;
+  password: string;
+  name: string;
+  avatar: string | null;
+};
 
-export const insertCategorySchema = createInsertSchema(categories).omit({
-  id: true,
-});
-
-export const insertGroupSchema = createInsertSchema(groups).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertGroupMemberSchema = createInsertSchema(groupMembers).omit({
-  id: true,
-  joinedAt: true,
-});
-
-export const insertExpenseSchema = createInsertSchema(expenses).omit({
-  id: true,
-  date: true,
-});
-
-export const insertGroupExpenseSplitSchema = createInsertSchema(groupExpenseSplits).omit({
-  id: true,
-  settled: true,
-  settledAt: true,
-});
-
-export const insertNotificationSchema = createInsertSchema(notifications).omit({
-  id: true,
-  read: true,
-  createdAt: true,
-});
-
-// Types
-export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
-export type Category = typeof categories.$inferSelect;
+export type Category = {
+  id: number;
+  name: string;
+  icon: string;
+  color: string;
+  createdAt: Date;
+};
+
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 
-export type Group = typeof groups.$inferSelect;
+export type Group = {
+  id: number;
+  name: string;
+  description?: string | null;
+  icon: string;
+  createdBy: number;
+  createdAt: Date;
+};
+
 export type InsertGroup = z.infer<typeof insertGroupSchema>;
 
-export type GroupMember = typeof groupMembers.$inferSelect;
+export type GroupMember = {
+  id: number;
+  groupId: number;
+  userId: number;
+  role?: string;
+  joinedAt: Date;
+};
+
 export type InsertGroupMember = z.infer<typeof insertGroupMemberSchema>;
 
-export type Expense = typeof expenses.$inferSelect;
+export type Expense = {
+  id: number;
+  amount: string;
+  description: string;
+  categoryId: number;
+  userId: number;
+  groupId?: number | null;
+  notes?: string | null;
+  receipt?: string | null;
+  date: Date;
+};
+
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 
-export type GroupExpenseSplit = typeof groupExpenseSplits.$inferSelect;
+export type GroupExpenseSplit = {
+  id: number;
+  expenseId: number;
+  userId: number;
+  amount: string;
+  settled: boolean;
+  settledAt?: Date | null;
+};
+
 export type InsertGroupExpenseSplit = z.infer<typeof insertGroupExpenseSplitSchema>;
 
-export type Notification = typeof notifications.$inferSelect;
+export type Notification = {
+  id: number;
+  userId: number;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: Date;
+};
+
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
