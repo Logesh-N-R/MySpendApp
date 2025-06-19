@@ -119,7 +119,7 @@ export default function Login() {
               <i className="fas fa-wallet text-white text-lg"></i>
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold text-gray-900">ExpenseOut</CardTitle>
+              <CardTitle className="text-2xl font-bold text-gray-900">SPENDS</CardTitle>
               <p className="text-sm text-gray-600">Smart Expense Tracker</p>
             </div>
           </div>
