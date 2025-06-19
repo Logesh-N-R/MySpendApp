@@ -21,6 +21,8 @@ import {
   type Notification,
   type InsertNotification,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -306,4 +308,177 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getCategories(): Promise<Category[]> {
+    return await db.select().from(categories);
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const [category] = await db
+      .insert(categories)
+      .values(insertCategory)
+      .returning();
+    return category;
+  }
+
+  async getGroups(): Promise<Group[]> {
+    return await db.select().from(groups);
+  }
+
+  async getGroupsByUserId(userId: number): Promise<Group[]> {
+    const userGroupIds = await db
+      .select({ groupId: groupMembers.groupId })
+      .from(groupMembers)
+      .where(eq(groupMembers.userId, userId));
+    
+    if (userGroupIds.length === 0) return [];
+    
+    const groupIds = userGroupIds.map(row => row.groupId);
+    return await db
+      .select()
+      .from(groups)
+      .where(inArray(groups.id, groupIds));
+  }
+
+  async getGroup(id: number): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.id, id));
+    return group || undefined;
+  }
+
+  async createGroup(insertGroup: InsertGroup): Promise<Group> {
+    const [group] = await db
+      .insert(groups)
+      .values(insertGroup)
+      .returning();
+    return group;
+  }
+
+  async getGroupMembers(groupId: number): Promise<GroupMember[]> {
+    return await db
+      .select()
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, groupId));
+  }
+
+  async addGroupMember(insertMember: InsertGroupMember): Promise<GroupMember> {
+    const [member] = await db
+      .insert(groupMembers)
+      .values(insertMember)
+      .returning();
+    return member;
+  }
+
+  async isGroupMember(groupId: number, userId: number): Promise<boolean> {
+    const [member] = await db
+      .select()
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, userId)));
+    return !!member;
+  }
+
+  async getExpenses(): Promise<Expense[]> {
+    return await db.select().from(expenses);
+  }
+
+  async getExpensesByUserId(userId: number): Promise<Expense[]> {
+    return await db
+      .select()
+      .from(expenses)
+      .where(eq(expenses.userId, userId));
+  }
+
+  async getExpensesByGroupId(groupId: number): Promise<Expense[]> {
+    return await db
+      .select()
+      .from(expenses)
+      .where(eq(expenses.groupId, groupId));
+  }
+
+  async getExpense(id: number): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense || undefined;
+  }
+
+  async createExpense(insertExpense: InsertExpense): Promise<Expense> {
+    const [expense] = await db
+      .insert(expenses)
+      .values(insertExpense)
+      .returning();
+    return expense;
+  }
+
+  async getGroupExpenseSplits(expenseId: number): Promise<GroupExpenseSplit[]> {
+    return await db
+      .select()
+      .from(groupExpenseSplits)
+      .where(eq(groupExpenseSplits.expenseId, expenseId));
+  }
+
+  async getGroupExpenseSplitsByUserId(userId: number): Promise<GroupExpenseSplit[]> {
+    return await db
+      .select()
+      .from(groupExpenseSplits)
+      .where(eq(groupExpenseSplits.userId, userId));
+  }
+
+  async createGroupExpenseSplit(insertSplit: InsertGroupExpenseSplit): Promise<GroupExpenseSplit> {
+    const [split] = await db
+      .insert(groupExpenseSplits)
+      .values(insertSplit)
+      .returning();
+    return split;
+  }
+
+  async settleGroupExpenseSplit(id: number): Promise<GroupExpenseSplit | undefined> {
+    const [split] = await db
+      .update(groupExpenseSplits)
+      .set({ settled: true, settledAt: new Date() })
+      .where(eq(groupExpenseSplits.id, id))
+      .returning();
+    return split || undefined;
+  }
+
+  async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId));
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(insertNotification)
+      .returning();
+    return notification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<Notification | undefined> {
+    const [notification] = await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id))
+      .returning();
+    return notification || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();
