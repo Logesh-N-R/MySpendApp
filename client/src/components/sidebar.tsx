@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SidebarItem {
   id: string;
@@ -50,6 +51,34 @@ const sidebarItems: SidebarItem[] = [
   },
 ];
 
+function UserProfile() {
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <Card className="bg-slate-700/50 border-slate-600 p-4">
+      <div className="flex items-center space-x-3 mb-3">
+        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+          <i className="fas fa-user text-white text-sm"></i>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">{user.name || user.username}</p>
+          <p className="text-xs text-slate-400 truncate">{user.email}</p>
+        </div>
+      </div>
+      <Button
+        onClick={logout}
+        variant="ghost"
+        className="w-full justify-start text-left h-10 px-3 text-slate-300 hover:text-white hover:bg-slate-600/50 transition-colors"
+      >
+        <i className="fas fa-sign-out-alt mr-3 text-sm"></i>
+        <span className="text-sm">Sign Out</span>
+      </Button>
+    </Card>
+  );
+}
+
 export function Sidebar() {
   const [location] = useLocation();
 
@@ -97,19 +126,7 @@ export function Sidebar() {
 
       {/* User Profile Section */}
       <div className="p-4 border-t border-slate-700">
-        <Card className="bg-slate-700/50 border-slate-600 p-4">
-          <div className="flex items-center space-x-3">
-            <img
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=32&h=32"
-              alt="User Avatar"
-              className="w-10 h-10 rounded-full"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">John Doe</p>
-              <p className="text-xs text-slate-400 truncate">john@example.com</p>
-            </div>
-          </div>
-        </Card>
+        <UserProfile />
       </div>
     </div>
   );

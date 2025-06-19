@@ -1,16 +1,18 @@
 import { db } from "./db";
 import { users, categories } from "@shared/schema";
+import { hashPassword } from "./auth";
 
 async function seed() {
   console.log("Seeding database...");
 
-  // Create default user
+  // Create default user with hashed password
+  const hashedPassword = await hashPassword("password123");
   const [defaultUser] = await db
     .insert(users)
     .values({
       username: "johndoe",
       email: "john@example.com",
-      password: "password",
+      password: hashedPassword,
       name: "John Doe",
       avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=32&h=32",
     })

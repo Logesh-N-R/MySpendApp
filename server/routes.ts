@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertExpenseSchema, insertGroupSchema, insertGroupMemberSchema } from "@shared/schema";
+import { insertExpenseSchema, insertGroupSchema, insertGroupMemberSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import { hashPassword, verifyPassword, requireAuth, getCurrentUser } from "./auth";
 
 const clients = new Set<WebSocket>();
 
@@ -30,13 +31,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Get current user (hardcoded for demo)
-  app.get("/api/user", async (req, res) => {
-    const user = await storage.getUser(1);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+  // Authentication routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const registerData = insertUserSchema.extend({
+        name: z.string().min(1, "Name is required"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+      }).parse(req.body);
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(registerData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(registerData.password);
+      const user = await storage.createUser({
+        ...registerData,
+        password: hashedPassword,
+      });
+
+      res.status(201).json({ message: "User created successfully", userId: user.id });
+    } catch (error) {
+      console.error("Registration error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to create user" });
     }
-    res.json(user);
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = z.object({
+        username: z.string(),
+        password: z.string(),
+      }).parse(req.body);
+
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      const isValidPassword = await verifyPassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      req.session.userId = user.id;
+      res.json({ message: "Login successful", user: { id: user.id, username: user.username, email: user.email, name: user.name } });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Logout successful" });
+    });
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      res.json({ id: user.id, username: user.username, email: user.email, name: user.name });
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Failed to get user" });
+    }
+  });
+
+  // Get current user (for backward compatibility)
+  app.get("/api/user", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Failed to get user" });
+    }
   });
 
   // Get categories
@@ -46,17 +132,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get expenses for current user
-  app.get("/api/expenses", async (req, res) => {
-    const expenses = await storage.getExpensesByUserId(1);
+  app.get("/api/expenses", requireAuth, async (req, res) => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const expenses = await storage.getExpensesByUserId(user.id);
     res.json(expenses);
   });
 
   // Create expense
-  app.post("/api/expenses", async (req, res) => {
+  app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
       const expenseData = insertExpenseSchema.parse({
         ...req.body,
-        userId: 1,
+        userId: user.id,
       });
 
       const expense = await storage.createExpense(expenseData);
@@ -94,17 +189,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get groups for current user
-  app.get("/api/groups", async (req, res) => {
-    const groups = await storage.getGroupsByUserId(1);
+  app.get("/api/groups", requireAuth, async (req, res) => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const groups = await storage.getGroupsByUserId(user.id);
     res.json(groups);
   });
 
   // Create group
-  app.post("/api/groups", async (req, res) => {
+  app.post("/api/groups", requireAuth, async (req, res) => {
     try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
       const groupData = insertGroupSchema.parse({
         ...req.body,
-        createdBy: 1,
+        createdBy: user.id,
       });
 
       const group = await storage.createGroup(groupData);
@@ -112,7 +216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add creator as member
       await storage.addGroupMember({
         groupId: group.id,
-        userId: 1,
+        userId: user.id,
       });
 
       res.status(201).json(group);
@@ -151,8 +255,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get group expense splits for current user
-  app.get("/api/splits", async (req, res) => {
-    const splits = await storage.getGroupExpenseSplitsByUserId(1);
+  app.get("/api/splits", requireAuth, async (req, res) => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const splits = await storage.getGroupExpenseSplitsByUserId(user.id);
     res.json(splits);
   });
 
@@ -175,13 +283,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get notifications for current user
-  app.get("/api/notifications", async (req, res) => {
-    const notifications = await storage.getNotificationsByUserId(1);
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const notifications = await storage.getNotificationsByUserId(user.id);
     res.json(notifications);
   });
 
   // Mark notification as read
-  app.patch("/api/notifications/:id/read", async (req, res) => {
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
     const notificationId = parseInt(req.params.id);
     const notification = await storage.markNotificationAsRead(notificationId);
     
@@ -193,10 +305,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
-    const expenses = await storage.getExpensesByUserId(1);
-    const splits = await storage.getGroupExpenseSplitsByUserId(1);
-    const groups = await storage.getGroupsByUserId(1);
+  app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    const expenses = await storage.getExpensesByUserId(user.id);
+    const splits = await storage.getGroupExpenseSplitsByUserId(user.id);
+    const groups = await storage.getGroupsByUserId(user.id);
 
     // Calculate monthly total
     const currentMonth = new Date().getMonth();
