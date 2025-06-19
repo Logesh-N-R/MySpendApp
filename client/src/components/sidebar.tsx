@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 
 interface SidebarItem {
   id: string;
@@ -53,6 +54,7 @@ const sidebarItems: SidebarItem[] = [
 
 function UserProfile() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   if (!user) return null;
 
@@ -67,14 +69,26 @@ function UserProfile() {
           <p className="text-xs text-slate-400 truncate">{user.email}</p>
         </div>
       </div>
-      <Button
-        onClick={logout}
-        variant="ghost"
-        className="w-full justify-start text-left h-10 px-3 text-slate-300 hover:text-white hover:bg-slate-600/50 transition-colors"
-      >
-        <i className="fas fa-sign-out-alt mr-3 text-sm"></i>
-        <span className="text-sm">Sign Out</span>
-      </Button>
+      
+      <div className="space-y-2">
+        <Button
+          onClick={toggleTheme}
+          variant="ghost"
+          className="w-full justify-start text-left h-10 px-3 text-slate-300 hover:text-white hover:bg-slate-600/50 transition-colors"
+        >
+          <i className={`fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'} mr-3 text-sm`}></i>
+          <span className="text-sm">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+        </Button>
+        
+        <Button
+          onClick={logout}
+          variant="ghost"
+          className="w-full justify-start text-left h-10 px-3 text-slate-300 hover:text-white hover:bg-slate-600/50 transition-colors"
+        >
+          <i className="fas fa-sign-out-alt mr-3 text-sm"></i>
+          <span className="text-sm">Sign Out</span>
+        </Button>
+      </div>
     </Card>
   );
 }

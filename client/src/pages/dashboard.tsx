@@ -4,10 +4,8 @@ import { ExpenseChart } from "@/components/expense-chart";
 import { CategoryChart } from "@/components/category-chart";
 import { QuickAddForm } from "@/components/quick-add-form";
 import { TransactionList } from "@/components/transaction-list";
-import { GroupList } from "@/components/group-list";
 import { NotificationBell } from "@/components/notification-bell";
 import { Sidebar } from "@/components/sidebar";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { useWebSocket } from "@/hooks/use-websocket";
@@ -48,7 +46,7 @@ export default function Dashboard() {
       case 'payment_settled':
         toast({
           title: "Payment Settled",
-          description: "A payment has been marked as settled",
+          description: `Payment of ${formatCurrency(message.amount)} settled`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/splits"] });
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
@@ -60,26 +58,26 @@ export default function Dashboard() {
     queryKey: ["/api/user"],
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  if (statsLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
         <Sidebar />
         <div className="flex-1 ml-64">
-          <nav className="bg-white shadow-sm border-b border-gray-200">
+          <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
             <div className="px-6 py-4">
-              <div className="h-16 bg-gray-200 rounded animate-pulse"></div>
+              <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
             </div>
           </nav>
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {[1, 2, 3, 4].map((i) => (
-                <Card key={i} className="animate-pulse">
+                <Card key={i} className="animate-pulse bg-white dark:bg-gray-800">
                   <CardContent className="p-6">
-                    <div className="h-64"></div>
+                    <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
                   </CardContent>
                 </Card>
               ))}
@@ -90,128 +88,108 @@ export default function Dashboard() {
     );
   }
 
+  if (!stats) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-500 dark:text-gray-400">Failed to load dashboard data</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
       {/* Sidebar */}
       <Sidebar />
       
       {/* Main Content */}
       <div className="flex-1 ml-64">
         {/* Top Navigation */}
-        <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+        <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30 transition-colors">
           <div className="px-6 py-4">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-                <p className="text-sm text-gray-600 mt-1">Welcome back, {user?.name || "User"}</p>
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Welcome back, {user?.name || "User"}</p>
               </div>
               
               <div className="flex items-center space-x-4">
-                <Button variant="outline" size="sm" className="text-blue-600 border-blue-600 hover:bg-blue-50">
-                  <i className="fas fa-eye mr-2"></i>
-                  Switch to user view
-                </Button>
-                <select className="text-sm border border-gray-300 rounded px-3 py-2">
-                  <option>English</option>
-                </select>
-                <Button variant="ghost" size="sm">
-                  <i className="fas fa-expand-arrows-alt"></i>
-                </Button>
                 <NotificationBell />
-                <Button variant="ghost" size="sm">
-                  <i className="fas fa-cog"></i>
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Corporate Admin
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <i className="fas fa-power-off"></i>
-                </Button>
               </div>
             </div>
           </div>
         </nav>
 
-        <div className="p-6">
+        <div className="p-6 bg-gray-50 dark:bg-gray-900 transition-colors">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <StatsCard
+              title="Monthly Total"
+              value={formatCurrency(stats.monthlyTotal)}
+              subtitle="This month's expenses"
+              icon="fas fa-credit-card"
+              iconColor="text-blue-500"
+            />
+            <StatsCard
+              title="Group Balance"
+              value={formatCurrency(stats.groupBalance)}
+              subtitle="Amount owed to you"
+              icon="fas fa-users"
+              iconColor="text-green-500"
+            />
+            <StatsCard
+              title="Pending Dues"
+              value={formatCurrency(stats.pendingDues)}
+              subtitle="Amount you owe"
+              icon="fas fa-clock"
+              iconColor="text-orange-500"
+              valueColor="text-orange-600"
+            />
+            <StatsCard
+              title="Active Groups"
+              value={stats.activeGroups.toString()}
+              subtitle="Groups you're part of"
+              icon="fas fa-layer-group"
+              iconColor="text-purple-500"
+            />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-6">
-              {/* Approval Report */}
-              <Card className="bg-white">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Approval Report</h3>
-                  <div className="flex border-b border-gray-200 mb-6">
-                    <button className="px-4 py-2 text-blue-600 border-b-2 border-blue-600 font-medium">
-                      Expense Report Wise
-                    </button>
-                    <button className="px-4 py-2 text-gray-500 hover:text-gray-700">
-                      Advance Report Wise
-                    </button>
-                  </div>
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-folder-open text-2xl text-gray-400"></i>
-                    </div>
-                    <div className="text-gray-400 text-2xl mb-2">😕</div>
-                    <p className="text-gray-500 font-medium">Empty</p>
-                    <p className="text-gray-400 text-sm">No data Available</p>
-                  </div>
-                </div>
-              </Card>
+              {/* Quick Add Form */}
+              <QuickAddForm />
 
-              {/* Top Spending Categories */}
-              <Card className="bg-white">
+              {/* Spending Categories */}
+              <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Spending Categories</h3>
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-chart-pie text-2xl text-gray-400"></i>
-                    </div>
-                    <div className="text-gray-400 text-2xl mb-2">😕</div>
-                    <p className="text-gray-500 font-medium">Empty</p>
-                    <p className="text-gray-400 text-sm">No data Available</p>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Top Spending Categories</h3>
+                  <CategoryChart data={stats.categoryBreakdown} />
                 </div>
               </Card>
             </div>
 
             {/* Right Column */}
             <div className="space-y-6">
-              {/* Budget Status */}
-              <Card className="bg-white">
+              {/* Monthly Spending Trend */}
+              <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Budget Status</h3>
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                      <i className="fas fa-bars mr-2"></i>
-                    </Button>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Monthly Spending Trend</h3>
                   <div className="h-64">
                     <ExpenseChart data={[]} />
                   </div>
                 </div>
               </Card>
 
-              {/* Top Spending Users */}
-              <Card className="bg-white">
+              {/* Recent Transactions */}
+              <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Spending Users</h3>
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <i className="fas fa-users text-2xl text-gray-400"></i>
-                    </div>
-                    <div className="text-gray-400 text-2xl mb-2">😕</div>
-                    <p className="text-gray-500 font-medium">Empty</p>
-                    <p className="text-gray-400 text-sm">No data Available</p>
-                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Recent Transactions</h3>
+                  <TransactionList />
                 </div>
               </Card>
             </div>
-          </div>
-
-          {/* Quick Add Form - Floating */}
-          <div className="fixed bottom-6 right-6 w-80 max-h-96 overflow-hidden">
-            <QuickAddForm />
           </div>
         </div>
       </div>
