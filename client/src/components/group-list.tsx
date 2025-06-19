@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import type { Group } from "@shared/schema";
 
 const formSchema = z.object({
@@ -22,6 +23,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function GroupList() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -66,9 +68,9 @@ export function GroupList() {
 
   if (isLoading) {
     return (
-      <Card className="bg-white shadow-sm border border-gray-200">
-        <CardHeader className="border-b border-gray-200 pb-6">
-          <CardTitle className="text-lg font-semibold text-gray-900">
+      <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+        <CardHeader className="border-b border-gray-200 dark:border-gray-700 pb-6">
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Active Groups
           </CardTitle>
         </CardHeader>
@@ -77,17 +79,17 @@ export function GroupList() {
             {[1, 2].map((i) => (
               <div key={i}>
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                  <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                   <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/2 mb-3"></div>
                   <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                    <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-3/4"></div>
                   </div>
                 </div>
               </div>
@@ -99,10 +101,10 @@ export function GroupList() {
   }
 
   return (
-    <Card className="bg-white shadow-sm border border-gray-200">
-      <CardHeader className="border-b border-gray-200 pb-6">
+    <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700 pb-6">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-gray-900">
+          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Active Groups
           </CardTitle>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -169,38 +171,38 @@ export function GroupList() {
       </CardHeader>
       
       <CardContent className="p-0">
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {groups.map((group) => (
             <div key={group.id} className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-primary bg-opacity-10 rounded-full">
-                    <i className={`${group.icon} text-primary`}></i>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                    <i className={`${group.icon} text-blue-600 dark:text-blue-400`}></i>
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">{group.name}</h3>
-                    <p className="text-sm text-gray-500">Group</p>
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">{group.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Group</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-600">Active</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-semibold text-gray-600 dark:text-gray-400">Active</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Created {new Date(group.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Group Details</h4>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Group Details</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Status</span>
-                    <span className="font-medium text-gray-900">Active</span>
+                    <span className="text-gray-600 dark:text-gray-400">Status</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">Active</span>
                   </div>
                   {group.description && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Description</span>
-                      <span className="font-medium text-gray-900">{group.description}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Description</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{group.description}</span>
                     </div>
                   )}
                 </div>
@@ -208,6 +210,7 @@ export function GroupList() {
                   size="sm"
                   className="w-full mt-3 text-sm"
                   variant="outline"
+                  onClick={() => setLocation(`/groups/${group.id}`)}
                 >
                   View Group Details
                 </Button>
@@ -216,8 +219,8 @@ export function GroupList() {
           ))}
           
           {groups.length === 0 && (
-            <div className="p-6 text-center text-gray-500">
-              <i className="fas fa-users text-4xl mb-4 text-gray-300"></i>
+            <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+              <i className="fas fa-users text-4xl mb-4 text-gray-300 dark:text-gray-600"></i>
               <p>No groups yet</p>
               <p className="text-sm">Create your first group to split expenses</p>
             </div>

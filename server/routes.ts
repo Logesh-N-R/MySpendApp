@@ -236,6 +236,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(groups);
   });
 
+  // Get single group details
+  app.get("/api/groups/:id", async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const group = await storage.getGroup(groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get group" });
+    }
+  });
+
+  // Get group expenses
+  app.get("/api/groups/:id/expenses", async (req, res) => {
+    try {
+      const groupId = parseInt(req.params.id);
+      const expenses = await storage.getExpensesByGroupId(groupId);
+      res.json(expenses);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get group expenses" });
+    }
+  });
+
   // Create group
   app.post("/api/groups", requireAuth, async (req, res) => {
     try {
@@ -289,6 +314,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid member data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to add member" });
+    }
+  });
+
+  // Create group expense with splitting
+  app.post("/api/groups/expenses", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { groupId, amount, description, categoryId, splits } = req.body;
+      
+      // Verify user is a member of the group
+      const isMember = await storage.isGroupMember(groupId, user.id);
+      if (!isMember) {
+        return res.status(403).json({ message: "Not a member of this group" });
+      }
+
+      // Create the expense
+      const expense = await storage.createExpense({
+        amount,
+        description,
+        categoryId,
+        userId: user.id,
+        groupId,
+      });
+
+      // Create splits for each member
+      for (const split of splits) {
+        await storage.createGroupExpenseSplit({
+          expenseId: expense.id,
+          userId: split.userId,
+          amount: split.amount.toString(),
+        });
+      }
+
+      // Broadcast to clients
+      broadcastToClients({
+        type: "group_expense_added",
+        groupId,
+        expense,
+      });
+
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error("Create group expense error:", error);
+      res.status(500).json({ message: "Failed to create group expense" });
     }
   });
 

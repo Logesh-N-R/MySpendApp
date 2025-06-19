@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import Dashboard from "@/pages/dashboard";
 import Expenses from "@/pages/expenses";
 import Groups from "@/pages/groups";
+import GroupDetails from "@/pages/group-details";
 import Reports from "@/pages/reports";
 import Categories from "@/pages/categories";
 import Settings from "@/pages/settings";
@@ -36,6 +37,7 @@ function AuthenticatedRouter() {
       <Route path="/" component={Dashboard} />
       <Route path="/expenses" component={Expenses} />
       <Route path="/groups" component={Groups} />
+      <Route path="/groups/:id" component={GroupDetails} />
       <Route path="/reports" component={Reports} />
       <Route path="/categories" component={Categories} />
       <Route path="/settings" component={Settings} />
