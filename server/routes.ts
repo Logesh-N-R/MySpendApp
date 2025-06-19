@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertExpenseSchema, insertGroupSchema, insertGroupMemberSchema, insertUserSchema } from "@shared/schema";
+import { insertExpenseSchema, insertGroupSchema, insertGroupMemberSchema, insertUserSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
 import { hashPassword, verifyPassword, requireAuth, getCurrentUser } from "./auth";
 
@@ -125,10 +125,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user profile
+  app.put("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const updateData = z.object({
+        name: z.string().min(1, "Name is required"),
+        email: z.string().email("Invalid email address"),
+      }).parse(req.body);
+
+      const updatedUser = await storage.updateUser(user.id, updateData);
+      res.json(updatedUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid profile data", errors: error.errors });
+      }
+      console.error("Update profile error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Get categories
   app.get("/api/categories", async (req, res) => {
     const categories = await storage.getCategories();
     res.json(categories);
+  });
+
+  // Create category
+  app.post("/api/categories", requireAuth, async (req, res) => {
+    try {
+      const categoryData = insertCategorySchema.parse(req.body);
+      const category = await storage.createCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create category" });
+    }
   });
 
   // Get expenses for current user

@@ -8,6 +8,8 @@ import Dashboard from "@/pages/dashboard";
 import Expenses from "@/pages/expenses";
 import Groups from "@/pages/groups";
 import Reports from "@/pages/reports";
+import Categories from "@/pages/categories";
+import Settings from "@/pages/settings";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -35,8 +37,8 @@ function AuthenticatedRouter() {
       <Route path="/expenses" component={Expenses} />
       <Route path="/groups" component={Groups} />
       <Route path="/reports" component={Reports} />
-      <Route path="/categories" component={Dashboard} />
-      <Route path="/settings" component={Dashboard} />
+      <Route path="/categories" component={Categories} />
+      <Route path="/settings" component={Settings} />
       <Route path="/login" component={Login} />
       <Route component={NotFound} />
     </Switch>

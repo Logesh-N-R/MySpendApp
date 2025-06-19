@@ -33,7 +33,7 @@ export function QuickAddForm() {
       amount: "",
       description: "",
       categoryId: "",
-      groupId: "",
+      groupId: "personal",
     },
   });
 
@@ -51,7 +51,7 @@ export function QuickAddForm() {
         amount: data.amount,
         description: data.description,
         categoryId: parseInt(data.categoryId),
-        groupId: data.groupId ? parseInt(data.groupId) : null,
+        groupId: data.groupId && data.groupId !== "personal" ? parseInt(data.groupId) : null,
         date: new Date().toISOString(),
       });
     },
@@ -182,7 +182,7 @@ export function QuickAddForm() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">Personal Expense</SelectItem>
+                          <SelectItem value="personal">Personal Expense</SelectItem>
                           {groups.map((group) => (
                             <SelectItem key={group.id} value={group.id.toString()}>
                               {group.name}
